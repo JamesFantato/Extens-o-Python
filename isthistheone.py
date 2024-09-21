@@ -1,0 +1,89 @@
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+import numpy as np
+
+data = {
+    'veiculo_id': ['5031-10', '5031-21', '5032-10', '5029-10', '5033-10', '5034-10', '5035-10', '5036-10', '5037-10', '5038-10'],
+    'rota': ['Vl. Arapuá/Term.Sacomã', 'V.Cde do Pinhal/Term.Sacomã', 'Vl. Arapuá/Term.Sacomã', 'Jd. Patente/Term. Sacomã', 
+             'Jd. Clímax/Term. Sacomã', 'Vl. Moraes/Term. Sacomã', 'S.Bernardo/Term. Sacomã', 'Jd. Maristela/Term. Sacomã', 'V. Ema/Term. Sacomã', 'Centro/Term. Sacomã'],
+    'horario_saida': ['11:30', '12:00', '13:00', '14:00', '07:00', '09:00', '10:30', '15:00', '16:30', '18:00'],
+    'horario_chegada': ['12:07', '12:19', '13:56', '14:30', '07:45', '09:40', '11:00', '15:50', '17:10', '18:45'],
+    'dia_semana': ['Todos', 'Segunda', 'Terça', 'Todos', 'Todos', 'Quarta', 'Quinta', 'Sexta', 'Todos', 'Segunda'],
+    'viagens_diarias': [8, 6, 10, 7, 9, 6, 5, 4, 8, 9],
+    'fatores_atraso': ['Horário de pico, trânsito', 'Trânsito', 'Nenhum', 'Horário de pico', 'Trânsito', 'Nenhum', 'Horário de pico', 'Acidente', 'Trânsito', 'Nenhum'],
+    'atraso_real_minutos': [10, 5, 10, 15, 20, 0, 25, 30, 10, 5],  # Atrasos reais em minutos
+    'horario_pico': ['Sim', 'Não', 'Não', 'Sim', 'Sim', 'Sim', 'Não', 'Não', 'Sim', 'Sim']
+}
+
+df = pd.DataFrame(data)
+
+df['horario_saida'] = pd.to_datetime(df['horario_saida'], format='%H:%M').dt.time
+df['horario_chegada'] = pd.to_datetime(df['horario_chegada'], format='%H:%M').dt.time
+
+df['tempo_viagem'] = (pd.to_datetime(df['horario_chegada'].astype(str)) - pd.to_datetime(df['horario_saida'].astype(str))).dt.seconds / 60
+
+print("Dataset expandido com novos veículos e rotas:")
+print(df)
+
+print("\nTempo de viagem por rota:")
+print(df[['rota', 'tempo_viagem']])
+
+print("\nNúmero de viagens diárias por veículo:")
+print(df[['veiculo_id', 'viagens_diarias']])
+
+print("\nFatores de atraso e tempo de atraso real:")
+print(df[['rota', 'fatores_atraso', 'atraso_real_minutos']])
+
+df_pico = df.groupby('horario_pico')['atraso_real_minutos'].mean()
+print("\nMédia de atrasos em horários de pico e fora de pico:")
+print(df_pico)
+
+x = np.arange(len(df['rota']))
+largura = 0.35
+
+fig, ax = plt.subplots(figsize=(12, 6))
+
+barras_tempo = ax.bar(x - largura/2, df['tempo_viagem'], largura, label='Tempo de Viagem (min)', color='skyblue', edgecolor='black')
+
+barras_atraso = ax.bar(x + largura/2, df['atraso_real_minutos'], largura, label='Atraso Real (min)', color='salmon', edgecolor='black')
+
+ax.set_xlabel('Rota', fontsize=14)
+ax.set_ylabel('Minutos', fontsize=14)
+ax.set_title('Tempo de Viagem e Atrasos Reais por Rota', fontsize=16)
+ax.set_xticks(x)
+ax.set_xticklabels(df['rota'], rotation=45, fontsize=10)
+ax.legend()
+
+for i in range(len(df)):
+    ax.annotate(f'{df["tempo_viagem"][i]:.1f} min',
+                xy=(x[i] - largura/2, df["tempo_viagem"][i]), 
+                ha='center', va='bottom', fontsize=9, color='blue')
+    ax.annotate(f'{df["atraso_real_minutos"][i]} min',
+                xy=(x[i] + largura/2, df["atraso_real_minutos"][i]), 
+                ha='center', va='bottom', fontsize=9, color='red')
+
+plt.tight_layout()
+plt.show()
+
+df_pivot = df.pivot_table(index="rota", columns="dia_semana", values="atraso_real_minutos", aggfunc='mean')
+plt.figure(figsize=(12, 6))
+sns.heatmap(df_pivot, annot=True, cmap="coolwarm", fmt=".1f", cbar_kws={'label': 'Atraso Real (min)'})
+plt.title('Heatmap de Atrasos por Rota e Dia da Semana', fontsize=16)
+plt.xlabel('Dia da Semana', fontsize=14)
+plt.ylabel('Rota', fontsize=14)
+plt.xticks(rotation=45)
+plt.yticks(rotation=0)
+plt.tight_layout()
+plt.show()
+
+media_atrasos = df.groupby('dia_semana')['atraso_real_minutos'].mean().reindex(['Todos', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta'])
+
+plt.figure(figsize=(12, 6))
+sns.barplot(x=media_atrasos.index, y=media_atrasos.values, palette='Set2', edgecolor='black')
+plt.title('Média de Atrasos por Dia da Semana', fontsize=16)
+plt.xlabel('Dia da Semana', fontsize=14)
+plt.ylabel('Atraso Real (min)', fontsize=14)
+plt.xticks(rotation=45)
+plt.tight_layout()
+plt.show()
